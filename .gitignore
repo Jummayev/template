@@ -22,3 +22,5 @@ composer.lock
 # Project exclude paths
 /storage/app/
 /storage/framework/
+.logs
+.database
