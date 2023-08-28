@@ -1,0 +1,125 @@
+<?php
+
+namespace App\Http\Controllers{{namespace}};
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use App\Http\Requests\{{modelName}}Request\{{modelName}}CreateRequest;
+use App\Http\Requests\{{modelName}}Request\{{modelName}}UpdateRequest;
+use App\Http\Interfaces\{{modelName}}Interface;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use App\Models\{{modelName}};
+use App\Http\Resources\DefaultResource;
+/**
+ * @group {{modelName}}
+ *
+ */
+class {{modelName}}Controller extends Controller
+{
+
+    public function __construct(public {{modelName}}Interface ${{paramName}}Repository)
+    {
+    }
+
+    /**
+    * {{modelName}} Get all
+    *
+    * @response {
+    {{response}} * "roles": ["admin"]
+    * }
+    * @return AnonymousResourceCollection
+    */
+
+    public function index(Request $request)
+    {
+        $query = $this->{{paramName}}Repository->index($request);
+        $data = $query->paginate($request->get('per_page'));
+        return DefaultResource::collection($data);
+    }
+
+    /**
+    * {{modelName}} adminIndex get All
+    *
+    * @response {
+    {{response}}
+    *  "roles": ["admin"]
+    * }
+    * @return AnonymousResourceCollection
+    */
+
+    public function adminIndex(Request $request)
+    {
+        $query = $this->{{paramName}}Repository->adminIndex($request);
+        $data = $query->paginate($request->get('per_page'));
+        return DefaultResource::collection($data);
+    }
+
+    /**
+    * {{modelName}} view
+    *
+    * @queryParam {{paramName}} required
+    *
+    * @param Request $request
+    * @param {{modelName}} ${{paramName}}
+    * @return JsonResponse
+    * @response {
+    {{response}}
+    *  "roles": ["all"]
+    * }
+    */
+
+    public function show(Request $request, {{modelName}} ${{paramName}})
+    {
+        $post = $this->{{paramName}}Repository->show($request, $post);
+        return okResponse($post);
+    }
+
+    /**
+    * {{modelName}} create
+    *
+    {{fields}}
+    *
+    * @param {{modelName}}CreateRequest $createRequest
+    * @return JsonResponse
+    */
+
+    public function store({{modelName}}CreateRequest $createRequest)
+    {
+        ${{paramName}} = $this->{{paramName}}Repository->create($createRequest);
+        return okResponse(${{paramName}});
+    }
+
+    /**
+    * {{modelName}} update
+    *
+    * @queryParam {{paramName}} required
+    *
+    {{fields}}
+    *
+    * @param {{modelName}}UpdateRequest $updateRequest
+    * @param {{modelName}} ${{paramName}}
+    * @return JsonResponse
+    */
+
+    public function update({{modelName}}UpdateRequest $request, {{modelName}} ${{paramName}})
+    {
+         ${{paramName}} = $this->{{paramName}}Repository->update($request, $post);
+         return okResponse(${{paramName}});
+    }
+
+    /**
+     * {{modelName}} delete
+     *
+     * @queryParam {{paramName}} required
+     *
+     * @param {{modelName}} ${{paramName}}
+     * @return JsonResponse
+     */
+
+    public function destroy({{modelName}} ${{paramName}}): JsonResponse
+    {
+        $this->{{paramName}}Repository->delete(${{paramName}});
+        return okResponse(${{paramName}});
+    }
+}
