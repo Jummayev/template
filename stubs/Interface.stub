@@ -1,0 +1,22 @@
+<?php
+
+namespace App\Http\Interfaces;
+
+
+use App\Models\{{modelName}};
+use Illuminate\Http\Request;
+
+interface {{modelName}}Interface
+{
+    public function index(Request $request);
+
+    public function adminIndex(Request $request);
+
+    public function show(Request $request, {{modelName}} ${{paramName}});
+
+    public function store(Request $request);
+
+    public function update(Request $request, {{modelName}} ${{paramName}});
+
+    public function destroy({{modelName}} ${{paramName}});
+}

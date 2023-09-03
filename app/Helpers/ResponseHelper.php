@@ -11,9 +11,6 @@ function createdResponse(mixed $data = [], string $message = 'Created', string|i
     ], 201);
 }
 
-/**
- * @param  array<mixed>  $meta_data
- */
 function okResponse(mixed $data = [], string $message = 'ok', string|int $status = 'ok', array $meta_data = []): JsonResponse
 {
     return response()->json([
@@ -24,9 +21,6 @@ function okResponse(mixed $data = [], string $message = 'ok', string|int $status
     ]);
 }
 
-/**
- * @param  array<mixed>  $meta_data
- */
 function okWithPaginateResponse(mixed $data = [], string $message = 'ok', string|int $status = 'ok', array $meta_data = []): JsonResponse
 {
     if (! is_array($data)) {

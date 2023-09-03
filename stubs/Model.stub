@@ -13,8 +13,7 @@ class {{modelName}} extends Model
 { {{useTraits}}
     protected $table = '{{table}}';
 
-    protected $fillable = [{{fillable}}
-    ];
+    protected $fillable = {{fillable}};
     {{translatableFunctions}}{{relations}}
 
 }

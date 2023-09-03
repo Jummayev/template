@@ -4,11 +4,10 @@ namespace App\Http\Controllers{{namespace}};
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Http\Requests\{{modelName}}Request\{{modelName}}CreateRequest;
-use App\Http\Requests\{{modelName}}Request\{{modelName}}UpdateRequest;
+use App\Http\Requests\{{modelName}}\Store{{modelName}}Request;
+use App\Http\Requests\{{modelName}}\Update{{modelName}}Request;
 use App\Http\Interfaces\{{modelName}}Interface;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use App\Models\{{modelName}};
 use App\Http\Resources\DefaultResource;
 /**
@@ -26,16 +25,17 @@ class {{modelName}}Controller extends Controller
     * {{modelName}} Get all
     *
     * @response {
-    {{response}} * "roles": ["admin"]
+    {{response}}
     * }
-    * @return AnonymousResourceCollection
+    * @return JsonResponse
     */
 
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
         $query = $this->{{paramName}}Repository->index($request);
         $data = $query->paginate($request->get('per_page'));
-        return DefaultResource::collection($data);
+        $response = DefaultResource::collection($data);
+        return okWithPaginateResponse($response);
     }
 
     /**
@@ -43,16 +43,16 @@ class {{modelName}}Controller extends Controller
     *
     * @response {
     {{response}}
-    *  "roles": ["admin"]
     * }
-    * @return AnonymousResourceCollection
+    * @return JsonResponse
     */
 
-    public function adminIndex(Request $request)
+    public function adminIndex(Request $request): JsonResponse
     {
         $query = $this->{{paramName}}Repository->adminIndex($request);
         $data = $query->paginate($request->get('per_page'));
-        return DefaultResource::collection($data);
+        $response = DefaultResource::collection($data);
+        return okWithPaginateResponse($response);
     }
 
     /**
@@ -65,11 +65,10 @@ class {{modelName}}Controller extends Controller
     * @return JsonResponse
     * @response {
     {{response}}
-    *  "roles": ["all"]
     * }
     */
 
-    public function show(Request $request, {{modelName}} ${{paramName}})
+    public function show(Request $request, {{modelName}} ${{paramName}}): JsonResponse
     {
         $post = $this->{{paramName}}Repository->show($request, $post);
         return okResponse($post);
@@ -80,14 +79,14 @@ class {{modelName}}Controller extends Controller
     *
     {{fields}}
     *
-    * @param {{modelName}}CreateRequest $createRequest
+    * @param Store{{modelName}}Request $request
     * @return JsonResponse
     */
 
-    public function store({{modelName}}CreateRequest $createRequest)
+    public function store(Store{{modelName}}Request $request): JsonResponse
     {
-        ${{paramName}} = $this->{{paramName}}Repository->create($createRequest);
-        return okResponse(${{paramName}});
+        ${{paramName}} = $this->{{paramName}}Repository->store($request);
+        return createdResponse(${{paramName}});
     }
 
     /**
@@ -97,12 +96,12 @@ class {{modelName}}Controller extends Controller
     *
     {{fields}}
     *
-    * @param {{modelName}}UpdateRequest $updateRequest
+    * @param Update{{modelName}}Request $request
     * @param {{modelName}} ${{paramName}}
     * @return JsonResponse
     */
 
-    public function update({{modelName}}UpdateRequest $request, {{modelName}} ${{paramName}})
+    public function update(Update{{modelName}}Request $request, {{modelName}} ${{paramName}}): JsonResponse
     {
          ${{paramName}} = $this->{{paramName}}Repository->update($request, $post);
          return okResponse(${{paramName}});
@@ -119,7 +118,7 @@ class {{modelName}}Controller extends Controller
 
     public function destroy({{modelName}} ${{paramName}}): JsonResponse
     {
-        $this->{{paramName}}Repository->delete(${{paramName}});
+        $this->{{paramName}}Repository->destroy(${{paramName}});
         return okResponse(${{paramName}});
     }
 }
