@@ -12,7 +12,7 @@ interface {{modelName}}Interface
 
     public function adminIndex(Request $request);
 
-    public function show(Request $request, {{modelName}} ${{paramName}});
+    public function show(Request $request, int $id);
 
     public function store(Request $request);
 

@@ -68,9 +68,9 @@ class {{modelName}}Controller extends Controller
     * }
     */
 
-    public function show(Request $request, {{modelName}} ${{paramName}}): JsonResponse
+    public function show(Request $request, int $id): JsonResponse
     {
-        $post = $this->{{paramName}}Repository->show($request, $post);
+        $post = $this->{{paramName}}Repository->show($request, $id);
         return okResponse($post);
     }
 

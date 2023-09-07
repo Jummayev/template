@@ -1,0 +1,61 @@
+<?php
+
+namespace App\Http\Repositories;
+
+
+use App\Http\Interfaces\{{modelName}}Interface;
+use App\Http\Resources\DefaultResource;
+use App\Models\Post;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+
+class PostRepository extends BaseRepository implements {{modelName}}Interface
+{
+    protected mixed $modelClass = {{modelName}}::class;
+
+    public function index(Request $request): JsonResponse
+    {
+        $query = $this->generateQuery($request);
+        $data = $query->paginate($request->get('per_page'));
+        $response = DefaultResource::collection($data);
+
+        return okWithPaginateResponse($response);
+    }
+
+    public function adminIndex(Request $request): JsonResponse
+    {
+        $query = $this->generateQuery($request);
+        $data = $query->paginate($request->get('per_page'));
+        $response = DefaultResource::collection($data);
+
+        return okWithPaginateResponse($response);
+    }
+
+    public function show(Request $request, int $id): JsonResponse
+    {
+        $query = $this->generateQuery($request);
+        ${{paramName}} = $query->findOrFail($id);
+        return okResponse(${{paramName}});
+    }
+
+    public function store(Request $request): JsonResponse
+    {
+        $model = {{modelName}}::query()->create($request->all());
+        $this->defaultAppendAndInclude($model, $request);
+        return createdResponse($model);
+    }
+
+    public function update(Request $request, {{modelName}} ${{paramName}}): JsonResponse
+    {
+        ${{paramName}} = ${{paramName}}->update($request->all());
+        $this->defaultAppendAndInclude(${{paramName}}, $request);
+        return createdResponse(${{paramName}});
+    }
+
+    public function destroy({{modelName}} ${{paramName}}): JsonResponse
+    {
+        ${{paramName}}->delete();
+        return okResponse(${{paramName}});
+    }
+}
+

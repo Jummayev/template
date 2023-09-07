@@ -11,7 +11,7 @@ interface PostInterface
 
     public function adminIndex(Request $request);
 
-    public function show(Request $request, Post $post);
+    public function show(Request $request, int $id);
 
     public function store(Request $request);
 

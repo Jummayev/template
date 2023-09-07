@@ -8,6 +8,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use JetBrains\PhpStorm\NoReturn;
 
@@ -63,6 +64,7 @@ class CrudGenerateCommand extends Command
         $this->generateModel();
         $this->generateRequest();
         $this->generateInterface();
+        $this->generateRepository();
         $this->generateController();
 
         exec('./vendor/bin/pint');
@@ -437,5 +439,21 @@ class CrudGenerateCommand extends Command
             File::makeDirectory(app_path('Http/Interfaces'));
         }
         file_put_contents(app_path("Http/Interfaces/{$this->model_name}Interface.php"), $interfaceTemplate);
+    }
+
+    public function generateRepository()
+    {
+
+        if (! File::isDirectory(app_path('Http/Repositories/'))) {
+            File::makeDirectory(app_path('Http/Repositories/'));
+        }
+        //        $attributes = Schema::getColumnListing($this->table);
+        //        if (in_array('lang_hash', $attributes)) {
+        //            $stub = file_get_contents(resource_path('stubs/RepositoryWithTranslation.stub'));
+        //        } else {
+        $stub = $this->getStub('Repository');
+        //        }
+        $repositoryTemplate = str_replace(['{{modelName}}', '{{paramName}}'], [$this->model_name, lcfirst($this->model_name)], $stub);
+        file_put_contents(app_path("Http/Repositories/{$this->model_name}Repository.php"), $repositoryTemplate);
     }
 }

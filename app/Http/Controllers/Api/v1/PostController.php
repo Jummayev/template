@@ -83,6 +83,8 @@ class PostController extends Controller
      *
      * @queryParam post required
      *
+     * @param  Post  $post
+     *
      * @response {
      *  "id": "integer",
      *  "name": "string",
@@ -100,9 +102,9 @@ class PostController extends Controller
      *  "updated_at": "date",
      * }
      */
-    public function show(Request $request, Post $post): JsonResponse
+    public function show(Request $request, int $id): JsonResponse
     {
-        $post = $this->postRepository->show($request, $post);
+        $post = $this->postRepository->show($request, $id);
 
         return okResponse($post);
     }
