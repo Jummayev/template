@@ -58,10 +58,10 @@ class {{modelName}}Controller extends Controller
     /**
     * {{modelName}} view
     *
-    * @queryParam {{paramName}} required
+    * @queryParam id required
     *
     * @param Request $request
-    * @param {{modelName}} ${{paramName}}
+    * @param int     $id
     * @return JsonResponse
     * @response {
     {{response}}

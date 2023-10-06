@@ -11,6 +11,9 @@ use Illuminate\Http\Request;
 
 class PostRepository extends BaseRepository implements {{modelName}}Interface
 {
+    /**
+     * @var {{modelName}} $modelClass
+     */
     protected mixed $modelClass = {{modelName}}::class;
 
     public function index(Request $request): JsonResponse
@@ -49,7 +52,7 @@ class PostRepository extends BaseRepository implements {{modelName}}Interface
     {
         ${{paramName}} = ${{paramName}}->update($request->all());
         $this->defaultAppendAndInclude(${{paramName}}, $request);
-        return createdResponse(${{paramName}});
+        return okResponse(${{paramName}});
     }
 
     public function destroy({{modelName}} ${{paramName}}): JsonResponse

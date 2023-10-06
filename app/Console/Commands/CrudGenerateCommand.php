@@ -18,15 +18,11 @@ use function Laravel\Prompts\text;
 
 class CrudGenerateCommand extends Command
 {
-    private ?string $model_name;
-
-    private ?string $controller_path;
-
-    private ?string $table;
-
-    private ?string $module;
-
-    private bool $is_module = false;
+    public static array $integerTypes = [
+        'smallint' => ['-32768', '32767'],
+        'integer' => ['-2147483648', '2147483647'],
+        'bigint' => ['-9223372036854775808', '9223372036854775807'],
+    ];
 
     /**
      * The name and signature of the console command.
@@ -42,11 +38,15 @@ class CrudGenerateCommand extends Command
      */
     protected $description = 'CRUD generate';
 
-    public static array $integerTypes = [
-        'smallint' => ['-32768', '32767'],
-        'integer' => ['-2147483648', '2147483647'],
-        'bigint' => ['-9223372036854775808', '9223372036854775807'],
-    ];
+    private ?string $model_name;
+
+    private ?string $controller_path;
+
+    private ?string $table;
+
+    private ?string $module;
+
+    private bool $is_module = false;
 
     private array $notUse = ['id', 'created_at', 'updated_at', 'deleted_at', 'is_deleted'];
 
@@ -60,7 +60,6 @@ class CrudGenerateCommand extends Command
     {
         $this->setParameters();
         $this->setTableInfo();
-        dump($this->tableInfo);
         $this->generateModel();
         $this->generateRequest();
         $this->generateInterface();
@@ -69,6 +68,95 @@ class CrudGenerateCommand extends Command
 
         exec('./vendor/bin/pint');
         dd($this->model_name, $this->controller_path, $this->table, $this->module);
+    }
+
+    private function setParameters(): void
+    {
+        $this->model_name = $this->argument('name');
+        $this->controller_path = $this->argument('path');
+        $this->table = $this->argument('table');
+        $this->module = $this->option('module');
+        if (empty($this->model_name)) {
+            $this->model_name = text('Model (singular)', 'User', default: 'Post', required: true);
+        }
+        if (empty($this->controller_path)) {
+            $this->controller_path = text('Controller Path', default: 'Api/v1');
+        }
+        if (empty($this->table)) {
+            $this->table = text('Table ', default: Str::snake(Str::pluralStudly($this->model_name)), required: true);
+
+        }
+        if (empty($this->module)) {
+            $confirm = confirm('Modulgami', false);
+            if ($confirm == 'yes') {
+                $modules = File::json(base_path('modules_statuses.json'));
+                $modules = ['no' => true] + $modules;
+                $this->module = select('Modules', array_keys($modules), 'no');
+            }
+
+        }
+        if (! empty($this->module) && $this->module !== 'no') {
+            $this->is_module = true;
+        }
+    }
+
+    public function setTableInfo(): void
+    {
+        $databaseName = config('database.connections.pgsql.database');
+        $tableColumns = collect(DB::select(
+            '
+            SELECT
+                column_name as name,
+                data_type as type,
+                character_maximum_length as maximum_length,
+                is_nullable,
+                column_default as default
+                FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE table_name = ?',
+            [$this->table]
+        ))->keyBy('name')->toArray();
+
+        $foreignKeys = DB::select("
+            SELECT
+                kcu.column_name,
+                ccu.table_name AS foreign_table_name,
+                ccu.column_name AS foreign_column_name
+            FROM
+                information_schema.table_constraints AS tc
+                JOIN information_schema.key_column_usage AS kcu
+                  ON tc.constraint_name = kcu.constraint_name
+                  AND tc.table_schema = kcu.table_schema
+                JOIN information_schema.constraint_column_usage AS ccu
+                  ON ccu.constraint_name = tc.constraint_name
+                  AND ccu.table_schema = tc.table_schema
+            WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_name=? AND tc.table_catalog=?
+        ", [$this->table, $databaseName]);
+
+        foreach ($foreignKeys as $foreignKey) {
+            $tableColumns[$foreignKey->column_name]->foreign = [
+                'table' => $foreignKey->foreign_table_name,
+                'id' => $foreignKey->foreign_column_name,
+            ];
+        }
+
+        foreach ($tableColumns as $key => $column) {
+            $type = Str::of($column->type);
+            $type = match (true) {
+                $type == 'boolean' => 'boolean',
+                $type == 'text', $type->contains('char') => 'string',
+                $type->contains('int') => 'integer',
+                $type->contains('double'),
+                $type->contains('decimal'),
+                $type->contains('numeric'),
+                $type->contains('real') => 'numeric',
+                $type == 'date', $type->contains('time ') => 'date',
+                $type->contains('json') => 'json',
+                default => $column->type,
+            };
+            $tableColumns[$key]->type = $type;
+        }
+
+        $this->tableInfo = $tableColumns;
     }
 
     private function generateModel(): void
@@ -138,43 +226,163 @@ class CrudGenerateCommand extends Command
         if (! empty($this->module) && $this->module !== 'no') {
             file_put_contents(base_path("/Modules/$this->module/Entities/$this->model_name.php"), $modelTemplate);
         } else {
-            file_put_contents(app_path("/Models/$this->model_name.php"), $modelTemplate);
-        }
-    }
-
-    private function setParameters(): void
-    {
-        $this->model_name = $this->argument('name');
-        $this->controller_path = $this->argument('path');
-        $this->table = $this->argument('table');
-        $this->module = $this->option('module');
-        if (empty($this->model_name)) {
-            $this->model_name = text('Model (singular)', 'User', default: 'Post', required: true);
-        }
-        if (empty($this->controller_path)) {
-            $this->controller_path = text('Controller Path', default: 'Api/v1');
-        }
-        if (empty($this->table)) {
-            $this->table = text('Table ', default: Str::snake(Str::pluralStudly($this->model_name)), required: true);
-
-        }
-        if (empty($this->module)) {
-            $confirm = confirm('Modulgami', false);
-            if ($confirm == 'yes') {
-                $modules = File::json(base_path('modules_statuses.json'));
-                $modules = ['no' => true] + $modules;
-                $this->module = select('Modules', array_keys($modules), 'no');
-            }
-
-        }
-        if (! empty($this->module) && $this->module !== 'no') {
-            $this->is_module = true;
+            file_put_contents(app_path("/Models/$this->model_name/.php"), $modelTemplate);
         }
     }
 
     protected function getStub(string $type): string
     {
         return (string) file_get_contents(base_path("stubs/$type.stub"));
+    }
+
+    protected function generateRequest(): void
+    {
+        $createRules = [];
+        $updateRules = [];
+        foreach ($this->tableInfo as $column_name => $column) {
+            if (in_array($column_name, $this->notUse)) {
+                continue;
+            }
+            $columnRules = [];
+            $columnRules[] = $column->is_nullable === 'YES' ? 'nullable' : 'required';
+
+            $type = Str::of($column->type);
+            switch (true) {
+                case $type == 'boolean':
+                    $columnRules[] = 'boolean';
+
+                    break;
+                case $type->contains('char'):
+                    $columnRules[] = 'string';
+                    $columnRules[] = 'max:'.$column->maximum_length;
+
+                    break;
+                case $type == 'text':
+                    $columnRules[] = 'string';
+                    break;
+                case $type->contains('int'):
+                    $columnRules[] = 'integer';
+                    $columnRules[] = 'min:'.self::$integerTypes[$type->__toString()][0];
+                    $columnRules[] = 'max:'.self::$integerTypes[$type->__toString()][1];
+
+                    break;
+                case $type->contains('double') ||
+                $type->contains('decimal') ||
+                $type->contains('numeric') ||
+                $type->contains('real'):
+                    // should we do more specific here?
+                    // some kind of regex validation for double, double unsigned, double(8, 2), decimal etc...?
+                    $columnRules[] = 'numeric';
+
+                    break;
+                case $type == 'date' || $type->contains('time '):
+                    $columnRules[] = 'date';
+
+                    break;
+                case $type->contains('json'):
+                    $columnRules[] = 'json';
+                    break;
+                default:
+                    $columnRules[] = $column->type;
+                    break;
+
+            }
+            if (! empty($column->foreign)) {
+                $columnRules[] = 'exists:'.implode(',', $column->foreign);
+            }
+            $stringRules = implode('|', $columnRules);
+            $createRules[$column_name] = $stringRules;
+            $updateRules[$column_name] = Str::replace('required', 'nullable', $stringRules);
+
+        }
+        $path = $this->model_name;
+        $this->createRequestFile("Store{$this->model_name}Request", $path, $createRules);
+        $this->createRequestFile("Update{$this->model_name}Request", $path, $createRules);
+    }
+
+    private function createRequestFile($name, $path, array $rules = []): void
+    {
+        $path .= "/$name";
+
+        Artisan::call('make:request', [
+            'name' => $path,
+            '--force' => true,
+        ]);
+
+        $output = trim(Artisan::output());
+
+        preg_match('/\[(.*?)]/', $output, $matches);
+
+        // The original $file we passed to the command may have changed on creation validation inside the command.
+        // We take the actual path which was used to create the file!
+        $actualFile = $matches[1] ?? null;
+
+        if ($actualFile) {
+            try {
+                $rules = VarExporter::export($rules, VarExporter::INLINE_SCALAR_LIST);
+                $fileContent = File::get(base_path($actualFile));
+                // Add spaces to indent the array in the request class file.
+                $rulesFormatted = str_replace("\n", "\n        ", $rules);
+                $pattern = '/(public function rules\(\): array\n\s*{\n\s*return )\[.*](;)/s';
+                $replaceContent = preg_replace($pattern, '$1'.$rulesFormatted.'$2', $fileContent);
+                File::put($actualFile, $replaceContent);
+                if ($this->is_module) {
+                    $replaceContent = preg_replace("App\Http\Requests\{$this->model_name}", "'Modules\\$this->module\\Http\\Requests\\{$this->model_name}", $fileContent);
+
+                    dd($replaceContent);
+                    File::put($actualFile, $replaceContent);
+
+                    if (! File::isDirectory(base_path("Modules/$this->module/Http/Requests/$this->model_name"))) {
+                        File::makeDirectory(base_path("Modules/$this->module/Http/Requests/$this->model_name/"), recursive: true);
+                    }
+                    File::move(base_path($actualFile), base_path("Modules/$this->module/Http/Requests/$this->model_name/$name.php"));
+                }
+            } catch (Exception $exception) {
+                $this->error($exception->getMessage());
+            }
+        }
+
+        if (Str::startsWith($output, 'INFO')) {
+            $this->info($output);
+        } else {
+            $this->error($output);
+        }
+    }
+
+    protected function generateInterface(): void
+    {
+        $interfaceTemplate = str_replace(
+            [
+                '{{modelName}}',
+                '{{paramName}}',
+            ],
+            [
+                $this->model_name,
+                Str::snake($this->model_name),
+            ],
+
+            $this->getStub('Interface')
+        );
+        if (! File::isDirectory(app_path('Http/Interfaces'))) {
+            File::makeDirectory(app_path('Http/Interfaces'));
+        }
+        file_put_contents(app_path("Http/Interfaces/{$this->model_name}Interface.php"), $interfaceTemplate);
+    }
+
+    public function generateRepository(): void
+    {
+
+        if (! File::isDirectory(app_path('Http/Repositories/'))) {
+            File::makeDirectory(app_path('Http/Repositories/'));
+        }
+        //        $attributes = Schema::getColumnListing($this->table);
+        //        if (in_array('lang_hash', $attributes)) {
+        //            $stub = file_get_contents(resource_path('stubs/RepositoryWithTranslation.stub'));
+        //        } else {
+        $stub = $this->getStub('Repository');
+        //        }
+        $repositoryTemplate = str_replace(['{{modelName}}', '{{paramName}}'], [$this->model_name, lcfirst($this->model_name)], $stub);
+        file_put_contents(app_path("Http/Repositories/{$this->model_name}Repository.php"), $repositoryTemplate);
     }
 
     protected function generateController(): void
@@ -252,106 +460,6 @@ class CrudGenerateCommand extends Command
         //        Artisan::call($artisanCall);
     }
 
-    protected function generateRequest(): void
-    {
-        $createRules = [];
-        $updateRules = [];
-        foreach ($this->tableInfo as $column_name => $column) {
-            if (in_array($column_name, $this->notUse)) {
-                continue;
-            }
-            $columnRules = [];
-            $columnRules[] = $column->is_nullable === 'YES' ? 'nullable' : 'required';
-
-            $type = Str::of($column->type);
-            switch (true) {
-                case $type == 'boolean':
-                    $columnRules[] = 'boolean';
-
-                    break;
-                case $type->contains('char'):
-                    $columnRules[] = 'string';
-                    $columnRules[] = 'max:'.$column->maximum_length;
-
-                    break;
-                case $type == 'text':
-                    $columnRules[] = 'string';
-                    break;
-                case $type->contains('int'):
-                    $columnRules[] = 'integer';
-                    $columnRules[] = 'min:'.self::$integerTypes[$type->__toString()][0];
-                    $columnRules[] = 'max:'.self::$integerTypes[$type->__toString()][1];
-
-                    break;
-                case $type->contains('double') ||
-                $type->contains('decimal') ||
-                $type->contains('numeric') ||
-                $type->contains('real'):
-                    // should we do more specific here?
-                    // some kind of regex validation for double, double unsigned, double(8, 2), decimal etc...?
-                    $columnRules[] = 'numeric';
-
-                    break;
-                case $type == 'date' || $type->contains('time '):
-                    $columnRules[] = 'date';
-
-                    break;
-                case $type->contains('json'):
-                    $columnRules[] = 'json';
-                    break;
-                default:
-                    $columnRules[] = $column->type;
-                    break;
-
-            }
-            if (! empty($column->foreign)) {
-                $columnRules[] = 'exists:'.implode(',', $column->foreign);
-            }
-            $stringRules = implode('|', $columnRules);
-            $createRules[$column_name] = $stringRules;
-            $updateRules[$column_name] = Str::replace('required', 'nullable', $stringRules);
-
-        }
-        $this->createRequestFile($this->model_name.'/Store'.$this->model_name.'Request', $createRules);
-        $this->createRequestFile($this->model_name.'/Update'.$this->model_name.'Request', $updateRules);
-    }
-
-    private function createRequestFile($name, array $rules = []): void
-    {
-        Artisan::call('make:request', [
-            'name' => $name,
-            '--force' => true,
-        ]);
-
-        $output = trim(Artisan::output());
-
-        preg_match('/\[(.*?)]/', $output, $matches);
-
-        // The original $file we passed to the command may have changed on creation validation inside the command.
-        // We take the actual path which was used to create the file!
-        $actualFile = $matches[1] ?? null;
-
-        if ($actualFile) {
-            try {
-                $rules = VarExporter::export($rules, VarExporter::INLINE_SCALAR_LIST);
-                $fileContent = File::get($actualFile);
-                // Add spaces to indent the array in the request class file.
-                $rulesFormatted = str_replace("\n", "\n        ", $rules);
-                $pattern = '/(public function rules\(\): array\n\s*{\n\s*return )\[.*](;)/s';
-                $replaceContent = preg_replace($pattern, '$1'.$rulesFormatted.'$2', $fileContent);
-                File::put($actualFile, $replaceContent);
-            } catch (Exception $exception) {
-                $this->error($exception->getMessage());
-            }
-        }
-
-        if (Str::startsWith($output, 'INFO')) {
-            $this->info($output);
-        } else {
-            $this->error($output);
-        }
-    }
-
     public function getColumnInfo($table, $column)
     {
         $info = DB::select("SELECT is_nullable, character_maximum_length
@@ -360,100 +468,5 @@ class CrudGenerateCommand extends Command
                                     AND column_name='$column';");
 
         return $info[0];
-    }
-
-    public function setTableInfo(): void
-    {
-        $databaseName = config('database.connections.pgsql.database');
-        $tableColumns = collect(DB::select(
-            '
-            SELECT
-                column_name as name,
-                data_type as type,
-                character_maximum_length as maximum_length,
-                is_nullable,
-                column_default as default
-                FROM INFORMATION_SCHEMA.COLUMNS
-            WHERE table_name = ?',
-            [$this->table]
-        ))->keyBy('name')->toArray();
-
-        $foreignKeys = DB::select("
-            SELECT
-                kcu.column_name,
-                ccu.table_name AS foreign_table_name,
-                ccu.column_name AS foreign_column_name
-            FROM
-                information_schema.table_constraints AS tc
-                JOIN information_schema.key_column_usage AS kcu
-                  ON tc.constraint_name = kcu.constraint_name
-                  AND tc.table_schema = kcu.table_schema
-                JOIN information_schema.constraint_column_usage AS ccu
-                  ON ccu.constraint_name = tc.constraint_name
-                  AND ccu.table_schema = tc.table_schema
-            WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_name=? AND tc.table_catalog=?
-        ", [$this->table, $databaseName]);
-
-        foreach ($foreignKeys as $foreignKey) {
-            $tableColumns[$foreignKey->column_name]->foreign = [
-                'table' => $foreignKey->foreign_table_name,
-                'id' => $foreignKey->foreign_column_name,
-            ];
-        }
-
-        foreach ($tableColumns as $key => $column) {
-            $type = Str::of($column->type);
-            $type = match (true) {
-                $type == 'boolean' => 'boolean',
-                $type == 'text', $type->contains('char') => 'string',
-                $type->contains('int') => 'integer',
-                $type->contains('double'),
-                $type->contains('decimal'),
-                $type->contains('numeric'),
-                $type->contains('real') => 'numeric',
-                $type == 'date', $type->contains('time ') => 'date',
-                $type->contains('json') => 'json',
-                default => $column->type,
-            };
-            $tableColumns[$key]->type = $type;
-        }
-
-        $this->tableInfo = $tableColumns;
-    }
-
-    protected function generateInterface(): void
-    {
-        $interfaceTemplate = str_replace(
-            [
-                '{{modelName}}',
-                '{{paramName}}',
-            ],
-            [
-                $this->model_name,
-                Str::snake($this->model_name),
-            ],
-
-            $this->getStub('Interface')
-        );
-        if (! File::isDirectory(app_path('Http/Interfaces'))) {
-            File::makeDirectory(app_path('Http/Interfaces'));
-        }
-        file_put_contents(app_path("Http/Interfaces/{$this->model_name}Interface.php"), $interfaceTemplate);
-    }
-
-    public function generateRepository()
-    {
-
-        if (! File::isDirectory(app_path('Http/Repositories/'))) {
-            File::makeDirectory(app_path('Http/Repositories/'));
-        }
-        //        $attributes = Schema::getColumnListing($this->table);
-        //        if (in_array('lang_hash', $attributes)) {
-        //            $stub = file_get_contents(resource_path('stubs/RepositoryWithTranslation.stub'));
-        //        } else {
-        $stub = $this->getStub('Repository');
-        //        }
-        $repositoryTemplate = str_replace(['{{modelName}}', '{{paramName}}'], [$this->model_name, lcfirst($this->model_name)], $stub);
-        file_put_contents(app_path("Http/Repositories/{$this->model_name}Repository.php"), $repositoryTemplate);
     }
 }

@@ -81,9 +81,7 @@ class PostController extends Controller
     /**
      * Post view
      *
-     * @queryParam post required
-     *
-     * @param  Post  $post
+     * @queryParam id required
      *
      * @response {
      *  "id": "integer",

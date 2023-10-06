@@ -28,7 +28,9 @@ function okWithPaginateResponse(mixed $data = [], string $message = 'ok', string
     }
     $data['message'] = $message;
     $data['status'] = $status;
-    $data = array_merge($data, $meta_data);
+    if (! empty($meta_data)) {
+        $data = array_merge($data, $meta_data);
+    }
 
     return response()->json($data);
 }
